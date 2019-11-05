@@ -712,6 +712,7 @@ int Touch_open()
 
 	case WU16_VAL:
 	case US03WU16_VAL:
+	case EX8XX_VAL:
 	    touch_fd = open(DEFAULT_TOUCH_EVENT2,O_RDONLY | O_NONBLOCK);
 	    break;
 
