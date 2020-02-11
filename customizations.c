@@ -24,7 +24,7 @@
 #include "psplash-fb.h"
 #include "customizations.h"
 #include <linux/i2c-dev.h>
-#include <dirent.h> 
+#include <dirent.h>
 #include <linux/input.h>
 #include "settings-img.h"
 #include "configos-img.h"
@@ -55,7 +55,6 @@
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
  ***********************************************************************************************************/
-
 // Helper function to read a system parameter system.ini file
 static int getSystemParameter(const char* key, char* value)
 {
@@ -97,10 +96,10 @@ static void Draw_Icon(PSplashFB *fb, int iconw, int iconh, uint8* data, uint8 bk
 {
   #define ICONYPOS 100
   psplash_fb_draw_rect (fb, 0, (fb->width - iconw)/2, ICONYPOS, iconw, iconh, bkred, bkgreen, bkblue);
-  
-  psplash_fb_draw_image (fb, 
+
+  psplash_fb_draw_image (fb,
 			 0,
-			 (fb->width - iconw)/2, 
+			 (fb->width - iconw)/2,
 			 ICONYPOS,
 			 iconw,
 			 iconh,
@@ -108,22 +107,21 @@ static void Draw_Icon(PSplashFB *fb, int iconw, int iconh, uint8* data, uint8 bk
 			 data);
 }
 
-
 //Helper function to write the synchornization file with the JMloader
 static int SyncJMLauncher(char* msg)
 {
   char* tmpdir;
   char fullpath[MAXPATHLENGTH];
-  
+
   //Filepath is defined by the TMPDIR env. variable; the default value is /tmp
   tmpdir = getenv("TMPDIR");
   if (!tmpdir)
     tmpdir = "/tmp";
-  
+
   //Filename is "taptap"
   strncpy(fullpath, tmpdir, MAXPATHLENGTH);
   strncat(fullpath,"/taptap", MAXPATHLENGTH);
-  
+
   // Opens the file and write the sync message
   FILE* fp;
   if((fp = fopen(fullpath, "w"))==NULL)
@@ -131,11 +129,11 @@ static int SyncJMLauncher(char* msg)
     fprintf(stderr,"SyncJMLauncher cannot open file -> %s \n",fullpath);
     return -1;
   }
-  
+
   fprintf(fp,"%s",msg);
   fflush(fp);
   fclose(fp);
-  
+
   return 0;
 }
 
@@ -144,11 +142,11 @@ static int SyncJMLauncher(char* msg)
 static int systemcmd(const char* cmd)
 {
   int ret;
-  
+
   ret = system(cmd);
   if (ret == -1)
     return ret;	// Failed to execute the system function
-    
+
     if(WIFEXITED(ret))
     {
       if(0 != WEXITSTATUS(ret))
@@ -156,12 +154,11 @@ static int systemcmd(const char* cmd)
 	else
 	  return 0;	// The executed command exited normally and returned 0 (=SUCCESS)
     }
-    return -1;		// The executed command did not terminate properly 
+    return -1;		// The executed command did not terminate properly
 }
 
-
 // Helper function to read the brightness value from SEEPROM.
-// A value in the range 0-255 is returned 
+// A value in the range 0-255 is returned
 // NOTE: 0 means min. brightness, not backlight off.
 // In case of error, 255 is returned, to be on the safe side.
 static int get_brightness_from_seeprom()
@@ -173,10 +170,10 @@ static int get_brightness_from_seeprom()
     fprintf(stderr, "psplash: Error eeprom_open: dev= %s err=%s\n", I2CSEEPROMDEVICE, strerror(errno));
     return 255;
   }
-  
+
   //2: Now read the brightness value from the corresponding offset
   char buf = 255;
-  
+
   fseek (fp, BLDIMM_POS, SEEK_SET);
   if(1 !=fread(&buf, 1, 1, fp))
     fprintf(stderr, "psplash: Error reading the eeprom: err=%s\n", strerror(errno));
@@ -191,7 +188,7 @@ static int get_brightness_from_seeprom()
 static int SetBrightness(char* brightnessdevice, int* pval)
 {
   char strval[50];
-  
+
   sprintf (strval,"%d", *pval);
   sysfs_write(brightnessdevice,"brightness",strval);
   return 0;
@@ -199,56 +196,55 @@ static int SetBrightness(char* brightnessdevice, int* pval)
 
 /***********************************************************************************************************
  Drawing the custom splashimage from splashimage.bin file
-
  NOTE: In order to speed up loading time, it is nedeed that both framebuffer and splashimage are in RGB565
        format.
 ***********************************************************************************************************/
 int psplash_draw_custom_splashimage(PSplashFB *fb)
 {
   char * splashpartition; //Partition containing the splashimage.bin file
-  
-  // Get the splash partition from the environment or use the default partition 
+
+  // Get the splash partition from the environment or use the default partition
   splashpartition = getenv("SPLASHPARTITION");
   if (splashpartition == NULL)
     splashpartition = DEFAULT_SPLASHPARTITION;
-  
-  // Mount the splash partition 
-  //char umount_cmd[] = "umount "PATHTOSPLASH; 
-  char mkdir_cmd[] = "mkdir "PATHTOSPLASH; 
+
+  // Mount the splash partition
+  //char umount_cmd[] = "umount "PATHTOSPLASH;
+  char mkdir_cmd[] = "mkdir "PATHTOSPLASH;
   systemcmd(mkdir_cmd);
-  
+
   char mount_cmd[MAXPATHLENGTH] = "mount -o ro ";
   strncat(mount_cmd, splashpartition, MAXPATHLENGTH/2);
   mount_cmd[MAXPATHLENGTH/2] = 0;
   strcat(mount_cmd, " ");
   strcat(mount_cmd, PATHTOSPLASH);
   systemcmd(mount_cmd);
-  
+
   //Try to open the splash file
   char splashfile[] = PATHTOSPLASH SPLASHFILENAME;
-  
+
   FILE* fp;
   if((fp = fopen(splashfile, "rb"))==NULL)
   {
     fprintf(stderr,"psplash: cannot open splashimage file -> %s \n",splashfile);
     goto error;
   }
-  
+
   // Gets the header of the SPLASH image and calculates the dimensions of the stored image. performs sanity checks
   unsigned int  splash_width;
   unsigned int  splash_height;
   unsigned int  splash_posx = 0;
   unsigned int  splash_posy = 0;
   unsigned int  header[SPLASH_HDRLEN];
-  
+
   rewind(fp);
-  
+
   if(fread(header, 1, SPLASH_HDRLEN, fp) != SPLASH_HDRLEN)
   {
     fprintf(stderr,"psplash: wrong splashimage file \n");
     goto error;
   }
-  
+
   splash_width = (header[SPLASH_STRIDE_IDX]) / 2 + 1;
 
   if ((splash_width > fb->width) || (splash_width < 10))
@@ -256,20 +252,20 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
     fprintf(stderr,"psplash: splashimage width error: %d \n",splash_width);
     goto error;
   }
-  
+
   splash_height = (((header[SPLASH_SIZE_IDX]) / 2) / splash_width);
-  
+
   if (splash_height > (fb->height)) splash_height = (fb->height);
-  if (splash_height < 10) 
+  if (splash_height < 10)
   {
     fprintf(stderr,"psplash: splashimage height error: %d \n",splash_height);
     goto error;
   }
-  
+
   // calculates the position of the splash inside the display
   splash_posx = ((fb->width)  - splash_width ) / 2;
   splash_posy = ((fb->height) - splash_height) / 2;
-  
+
   //And now draws the splashimage
   int          x;
   int          y;
@@ -278,14 +274,14 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   uint8        blue;
   uint16*      stride;
   uint16       rgb565color;
-  
+
   stride = (uint16 *) malloc (2 * (splash_width + 1));
   if (stride==NULL)
   {
     fprintf(stderr,"psplash: malloc error\n");
     goto error;
   }
-  
+
   for(y=0; y<splash_height; y++)
   {
     fread(stride, 2 * splash_width, 1, fp);
@@ -298,20 +294,20 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
       psplash_fb_plot_pixel (fb, 0, splash_posx + x, splash_posy + y, red, green, blue);
     }
   }
-  
+
   free(stride);
   fclose(fp);
-  // UnMount the splash partition 
+  // UnMount the splash partition
   // systemcmd(umount_cmd);
-  
+
   return 0;
 
-error:  
+error:
   if(fp)
     fclose(fp);
-  // UnMount the splash partition 
+  // UnMount the splash partition
   // systemcmd(umount_cmd);
-  
+
   return -1;
 }
 
@@ -591,11 +587,9 @@ int UpdateColorMatrix()
   return 0;
 }
 
-
 /***********************************************************************************************************
  Updating the backlight brightness value with the one stored in I2C SEEPROM
-
- NOTE: Scaling is done to properly map the range [0..255] of the I2C SEEPROM stored value with the range 
+ NOTE: Scaling is done to properly map the range [0..255] of the I2C SEEPROM stored value with the range
        [1..max_brightness], which is the available dynamic range for the backlight driver.
  ***********************************************************************************************************/
 void UpdateBrightness()
@@ -669,9 +663,7 @@ void UpdateBrightness()
 
 /***********************************************************************************************************
  Opening the touchscreen event for reading.
-
  ret = int touch_fd = file descriptor (< 0 if error)
- 
  NOTE: The touch event can be defined by the "TSDEVICE" environment var. If TSDEVICE not defined, the
        default "/dev/input/event0" or  "/dev/input/event1" is used, based on the hw_code (taken from cmdline)
        hw_code=110 -> "/dev/input/event0" (This is the ECO panel, which uses the CPU touch controller)
@@ -728,10 +720,10 @@ int Touch_open()
 	    break;
     }
   }
-  
+
   if(touch_fd < 0)
     fprintf(stderr, "psplash: Error opening the touch event: err=%s\n", strerror(errno));
-  
+
   return touch_fd;
 }
 
@@ -743,18 +735,15 @@ void Touch_close(int touch_fd)
 {
   if(touch_fd < 0)
     return;
-  
+
   close(touch_fd);
 }
 
-
 /***********************************************************************************************************
  Touch handler: counts the number of tap-tap events detected and gets the last detected touch status.
- 
  int  touch_fd   (file descriptor to touchscreen event)
  int* taptap     (taptap detected number)
  int* laststatus (0=up, 1=pressed)
- 
  int ret = number of detected UP/DOWN events (0=nothing happened)
  ***********************************************************************************************************/
 int Touch_handler(int touch_fd, int* taptap, int* laststatus)
@@ -765,33 +754,33 @@ int Touch_handler(int touch_fd, int* taptap, int* laststatus)
   int count = 0;
   int nfds;
   int ret;
-  
+
   if(touch_fd < 0)
     return 0;
-  
-  while (1) 
+
+  while (1)
   {
     FD_ZERO(&fdset);
     FD_SET(touch_fd, &fdset);
-    
+
     tv.tv_sec = 0;
     tv.tv_usec = 0;
-    
+
     nfds = select(touch_fd + 1, &fdset, NULL, NULL, &tv);
-    if (nfds == 0) 
+    if (nfds == 0)
       break;
-    
+
     ret = read(touch_fd, &ev, sizeof(struct input_event));
-    if (ret < (int)sizeof(struct input_event)) 
+    if (ret < (int)sizeof(struct input_event))
     {
       break;
     }
-    
+
     if (ev.type == EV_KEY)
       if((ev.code == BTN_TOUCH) || (ev.code == BTN_LEFT))
       {
 	if(ev.value == 0)
-	{ //pen UP 
+	{ //pen UP
 	  *taptap = *taptap + 1;
 	  *laststatus = 0;
 	  count++;
@@ -803,10 +792,9 @@ int Touch_handler(int touch_fd, int* taptap, int* laststatus)
 	}
       }
   }
-  
+
   return count;
 }
-
 
 /***********************************************************************************************************
  TapTap_Progress: Updates the tap-tap counting on display, to give a visual feedback to the user
@@ -817,7 +805,7 @@ int Touch_handler(int touch_fd, int* taptap, int* laststatus)
 void TapTap_Progress(PSplashFB *fb, int taptap)
 {
   extern void  psplash_draw_msg (PSplashFB *fb, const char *msg);
-  
+
   // Exit in case the actual taptap counter is still too low
   if(taptap <= TAPTAP_THLO)
     return;
@@ -825,7 +813,7 @@ void TapTap_Progress(PSplashFB *fb, int taptap)
   // Build a string representing the actual TAP-TAP counter value
   char msg[MAXPATHLENGTH] = "";
   int i;
-  
+
   for(i=0; i<TAPTAP_TH; i++)
   {
     if(i<taptap)
@@ -833,49 +821,47 @@ void TapTap_Progress(PSplashFB *fb, int taptap)
     else
       strcat(msg,".");
   }
-  
+
   // Draw the string
   psplash_draw_msg (fb, msg);
 }
 
-
 /***********************************************************************************************************
  TapTap_Detected: Handles the sequence for deciding what to do when TAP-TAP detected.
-
  PSplashFB* fb   (pointer to framebuffer structure)
  int laststatus  (last touchscreen status)
-
  output: int ret (1=exit, 0=continue)
- ***********************************************************************************************************/
+***********************************************************************************************************/
+#define LINUX_REBOOT_CMD_RESTART        0x01234567
 int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
 {
   extern void  psplash_draw_msg (PSplashFB *fb, const char *msg);
   extern int reboot(int cmd);
-  
+
   int refreshtrigger = 0xff;
   int time; //Time [s/200]
   char msg[MAXPATHLENGTH];
   int taptap = 0;
   int prevstatus = laststatus;
-  
+
   // Perform synchronization with the JMlauncher: put it in wait status
   SyncJMLauncher("wait");
-  
+
   // Perform countdown, touch status reading and msg updating, based on touch status (pressed or not pressed)
   for(time = 1000; time > 0; time -= 50)
   {
     if((time%200) == 0)    //refresh printout at least every second
       refreshtrigger = 0xff;
-    
+
     Touch_handler(touch_fd, &taptap, &laststatus);
     if(prevstatus != laststatus)
        time = 1000;
-    prevstatus = laststatus;    
+    prevstatus = laststatus;
 	
     if(laststatus != refreshtrigger)
     { //It is time to refresh the printout
       refreshtrigger = laststatus;
-      if(laststatus) 
+      if(laststatus)
       {
 	sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: CONFIG OS\n   SYSTEM SETTINGS\n",(int)(time/200));
 	Draw_Icon(fb, CONFIGOS_IMG_WIDTH, CONFIGOS_IMG_HEIGHT, CONFIGOS_IMG_RLE_PIXEL_DATA, PSPLASH_TEXTBK_COLOR);
@@ -890,7 +876,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     }
     usleep(200000);
   }
-  
+
   // Now, based on the touchscreen laststatus (pressed or not pressed) the proper action will be taken ...
   if(laststatus)
   { // In this case we will restart the recovery OS
@@ -898,13 +884,12 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     psplash_draw_msg (fb, msg);
     Draw_Icon(fb, CONFIGOS_IMG_WIDTH, CONFIGOS_IMG_HEIGHT, CONFIGOS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
     usleep(3000000);
-    
+
     // The recovery OS is forced to boot by setting the bootcounter over the threshold limit
-    setbootcounter(100); 
+    setbootcounter(100);
     //Now perform reboot unconditionally (please note the JMloader is still kept into the "wait" status, so it will not try booting anything in the meanwhile)
-    #define LINUX_REBOOT_CMD_RESTART        0x01234567
     sync();
-    reboot(LINUX_REBOOT_CMD_RESTART);    
+    reboot(LINUX_REBOOT_CMD_RESTART);
     //We should never get here !!!
     while(1)
       usleep(200);
@@ -913,23 +898,23 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
   {
     Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
     usleep(300000);
-    
+
     // In this case we will inform the JMloader to start the system settings menu by setting the "disable-kiosk" or "disable-kiosk-tchcalibrate" status, then we will normally exit
     // Perform countdown, touch status reading and msg updating, based on touch status (pressed or not pressed)
     for(time = 1000; time >= 0; time -= 50)
     {
       if((time%200) == 0)    //refresh printout at least every second
 	refreshtrigger = 0xff;
-      
+
       Touch_handler(touch_fd, &taptap, &laststatus);
       if(prevstatus != laststatus)
          time = 1000;
-      prevstatus = laststatus;    
+      prevstatus = laststatus;
 
       if(laststatus != refreshtrigger)
       { //It is time to refresh the printout
 	refreshtrigger = laststatus;
-	if(!laststatus) 
+	if(!laststatus)
 	{
 	  sprintf(msg, "** ENTERING SYSTEM SETTINGS  %d **\n>> DEFAULT MODE\n   TOUCHSCREEN CALIBRATION\n",(int)(time/200));
 	  Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, PSPLASH_TEXTBK_COLOR);
@@ -944,7 +929,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       }
       usleep(200000);
     }
-    
+
     //If the touch calibration was selected and we have a Jsmart, draw message that the touch calibration was done automatically.
     if(laststatus)
     {
@@ -960,7 +945,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
     else
       Draw_Icon(fb, CALIB_IMG_WIDTH, CALIB_IMG_HEIGHT, CALIB_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
-      
+
     // Perform synchronization with the JMlauncher based on the user's choice
     usleep(3000000);
     if(!laststatus)
@@ -969,4 +954,62 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       SyncJMLauncher("disable-kiosk-tchcalibrate");
   }
   return 0;
+}
+
+#define FASTBOOT_TIME 200
+int FastBootTapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
+{
+
+    extern void  psplash_draw_msg (PSplashFB *fb, const char *msg);
+    extern int reboot(int cmd);
+    int refreshtrigger = 0xff;
+    int time; //Time [s/200]
+    char msg[MAXPATHLENGTH];
+    int taptap = 0;
+    int prevstatus = laststatus;
+
+    // Perform synchronization with the JMlauncher: put it in wait status
+    SyncJMLauncher("wait");
+
+    // Perform countdown, touch status reading and msg updating, based on touch status (pressed or not pressed)
+    for(time = FASTBOOT_TIME; time > 0; time -= 50)
+    {
+        if((time%200) == 0)    //refresh printout at least every second
+            refreshtrigger = 0xff;
+
+        Touch_handler(touch_fd, &taptap, &laststatus);
+        if(prevstatus != laststatus)
+            time = FASTBOOT_TIME;
+        prevstatus = laststatus;
+
+        if(laststatus != refreshtrigger)
+        { //It is time to refresh the printout
+            refreshtrigger = laststatus;
+            if(laststatus)
+                sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: CONFIG OS\n",(int)(time/200));
+            else
+                sprintf(msg, "** TAP-TAP DETECTED  %d **\n   RESTART: CONFIG OS\n",(int)(time/200));
+            // Draw the string
+            psplash_draw_msg (fb, msg);
+        }
+        usleep(200000);
+    }
+    // Now, based on the touchscreen laststatus (pressed or not pressed) the proper action will be taken ...
+    if(laststatus)
+    { // In this case we will restart the recovery OS
+        sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nRESTARTING: CONFIG OS ...\n",(int)(time/200));
+        psplash_draw_msg (fb, msg);
+        usleep(3000000);
+
+        // The recovery OS is forced to boot by setting the bootcounter over the threshold limit
+        setbootcounter(100);
+        // Now perform reboot unconditionally (please note the JMloader is still kept into the "wait" status,
+        // so it will not try booting anything in the meanwhile)
+        sync();
+        reboot(LINUX_REBOOT_CMD_RESTART);
+        //We should never get here !!!
+        while(1)
+            usleep(200);
+    }
+    return 0;
 }

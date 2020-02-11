@@ -33,5 +33,7 @@
 
 /* This is the color for the text background */
 #define PSPLASH_TEXTBK_COLOR 0x00,0x00,0x90
+/* This is the color for the text background */
+#define PSPLASH_TEXTBK_COLOR_FB 0x90,0x00,0x00
 
 #endif

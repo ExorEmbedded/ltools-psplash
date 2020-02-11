@@ -1,9 +1,9 @@
-/* 
- *  pslash - a lightweight framebuffer splashscreen for embedded devices. 
+/*
+ *  pslash - a lightweight framebuffer splashscreen for embedded devices.
  *
  *  Copyright (c) 2006 Matthew Allum <mallum@o-hand.com>
  *
- *  Parts of this file ( fifo handling ) based on 'usplash' copyright 
+ *  Parts of this file ( fifo handling ) based on 'usplash' copyright
  *  Matthew Garret.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -30,41 +30,50 @@
 // Global variable indicating the font scale factor: 0=>1x 1=>2x 2=>4x
 int FONT_SCALE;
 bool disable_progress_bar = FALSE;
+bool fastboot_enable = FALSE;
 
 void
 psplash_exit (int signum)
 {
-  DBG("mark");
+    DBG("mark");
 
-  psplash_console_reset ();
+    psplash_console_reset ();
 }
 
 void
 psplash_draw_msg (PSplashFB *fb, const char *msg)
 {
-  int w, h;
+    int w, h;
 
-  psplash_fb_text_size (fb, &w, &h, &radeon_font, msg);
+    psplash_fb_text_size (fb, &w, &h, &radeon_font, msg);
 
-  DBG("displaying '%s' %ix%i\n", msg, w, h);
+    DBG("displaying '%s' %ix%i\n", msg, w, h);
 
-  /* Clear */
+    /* Clear */
+    if(FALSE == fastboot_enable)
+        psplash_fb_draw_rect (fb,
+                              0,
+                              0,
+                              10,
+                              fb->width,
+                              h+10,
+                              PSPLASH_TEXTBK_COLOR);
+    else
+        psplash_fb_draw_rect (fb,
+                              0,
+                              0,
+                              10,
+                              fb->width,
+                              h+10,
+                              PSPLASH_TEXTBK_COLOR_FB);
 
-  psplash_fb_draw_rect (fb, 
-			0, 
-			0, 
-			10, 
-			fb->width,
-			h+10,
-			PSPLASH_TEXTBK_COLOR);
-
-  psplash_fb_draw_text (fb,
-            0,
-			(fb->width-w)/2, 
-			15,
-			PSPLASH_TEXT_COLOR,
-			&radeon_font,
-			msg);
+    psplash_fb_draw_text (fb,
+                          0,
+                          (fb->width-w)/2,
+                          15,
+                          PSPLASH_TEXT_COLOR,
+                          &radeon_font,
+                          msg);
 }
 
 /*
@@ -133,7 +142,7 @@ psplash_draw_progress (PSplashFB *fb, int value)
   if (value > 0)
     {
       barwidth = (CLAMP(value,0,100) * width) / 100;
-      psplash_fb_draw_rect (fb, 0, x + barwidth, y, 
+      psplash_fb_draw_rect (fb, 0, x + barwidth, y,
     			width - barwidth, height,
 			PSPLASH_BAR_BACKGROUND_COLOR);
       psplash_fb_draw_rect (fb, 0, x, y, barwidth,
@@ -142,7 +151,7 @@ psplash_draw_progress (PSplashFB *fb, int value)
   else
     {
       barwidth = (CLAMP(-value,0,100) * width) / 100;
-      psplash_fb_draw_rect (fb, 0, x, y, 
+      psplash_fb_draw_rect (fb, 0, x, y,
     			width - barwidth, height,
 			PSPLASH_BAR_BACKGROUND_COLOR);
       psplash_fb_draw_rect (fb, 0, x + width - barwidth,
@@ -150,12 +159,12 @@ psplash_draw_progress (PSplashFB *fb, int value)
 			    PSPLASH_BAR_COLOR);
     }
 
-  DBG("value: %i, width: %i, barwidth :%i\n", value, 
+  DBG("value: %i, width: %i, barwidth :%i\n", value,
 		width, barwidth);
 }
 
-static int 
-parse_command (PSplashFB *fb, char *string, int length, bool infinite_progress, int progress) 
+static int
+parse_command (PSplashFB *fb, char *string, int length, bool infinite_progress, int progress)
 {
   char *command;
 
@@ -166,7 +175,7 @@ parse_command (PSplashFB *fb, char *string, int length, bool infinite_progress, 
     if (progress)
       {
         FILE* fp;
-        if ((fp = fopen(PROGRESS_FILE, "w")) == NULL) 
+        if ((fp = fopen(PROGRESS_FILE, "w")) == NULL)
           {
             fprintf(stderr, "Failed open progress file\n");
             return 1;
@@ -179,122 +188,142 @@ parse_command (PSplashFB *fb, char *string, int length, bool infinite_progress, 
 
   command = strtok(string," ");
 
-  if (!infinite_progress && !strcmp(command,"PROGRESS")) 
+  if (!infinite_progress && !strcmp(command,"PROGRESS"))
     {
       psplash_draw_progress (fb, atoi(strtok(NULL,"\0")));
-    } 
-  else if (!strcmp(command,"MSG")) 
+    }
+  else if (!strcmp(command,"MSG"))
     {
       psplash_draw_msg (fb, strtok(NULL,"\0"));
-    } 
+    }
 
   return 0;
 }
 
-void 
+void
 psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch, bool infinite_progress)
 {
-  int            err;
-  ssize_t        length = 0;
-  fd_set         descriptors;
-  struct timeval tv;
-  char          *end;
-  char           command[2048];
-  int            taptap=0;
-  int            laststatus=0;
-  int            touch_fd = -1;
-  // Keep track of current progress so it can be passed to xsplash
-  // currently supports infinite progress mode only
-  int            progress = INT_MIN;
+    int            err;
+    ssize_t        length = 0;
+    fd_set         descriptors;
+    struct timeval tv;
+    char          *end;
+    char           command[2048];
+    int            taptap=0;
+    int            laststatus=0;
+    int            touch_fd = -1;
+    // Keep track of current progress so it can be passed to xsplash
+    // currently supports infinite progress mode only
+    int            progress = INT_MIN;
+    FILE* filePointer;
+    char buffer[255];
 
-  tv.tv_sec = 0;
-  tv.tv_usec = 40000;
+    tv.tv_sec = 0;
+    tv.tv_usec = 40000;
 
-  FD_ZERO(&descriptors);
-  FD_SET(pipe_fd, &descriptors);
+    FD_ZERO(&descriptors);
+    FD_SET(pipe_fd, &descriptors);
 
-  end = command;
+    end = command;
 
-  while (1)
+    filePointer = fopen("/proc/cmdline", "r");
+    if( fgets(buffer, sizeof(buffer), filePointer) )
     {
-    startloop:
-      // Handles tap-tap touchscreen sequence
-      if(touch_fd < 0 && disable_touch == FALSE)
+        if( strstr(buffer, "fastboot=y") )
+        {
+            fprintf(stdout, "%s: fastboot=y\n", __func__);
+            fastboot_enable = TRUE;
+        } else {
+            fprintf(stdout, "%s: fastboot=n\n", __func__);
+            fastboot_enable = FALSE;
+        }
+    }
+    fclose(filePointer);
+
+    while (1)
+    {
+startloop:
+        // Handles tap-tap touchscreen sequence
+        if(touch_fd < 0 && disable_touch == FALSE)
             touch_fd = Touch_open();
 
-      if(Touch_handler(touch_fd, &taptap, &laststatus))
-      {
-	TapTap_Progress(fb, taptap);
-	if(taptap > TAPTAP_TH)
-	{
-	  TapTap_Detected(touch_fd, fb, laststatus);
-	  return;
-	}
-      }
+        if(Touch_handler(touch_fd, &taptap, &laststatus))
+        {
+            TapTap_Progress(fb, taptap);
+            if(taptap > TAPTAP_TH)
+            {
+                if( FALSE == fastboot_enable )
+                    TapTap_Detected(touch_fd, fb, laststatus);
+                else
+                    FastBootTapTap_Detected(touch_fd, fb, laststatus);
 
-      if (vt_requested())
-        return;
+                return;
+            }
+        }
 
-      err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
-      
-      if (err <= 0) 
-	{
-	  if((err==0))
-	  { // This is the select(9 timeout case, needed only to handle the tap-tap sequence, so repeat the loop.
+        if (vt_requested())
+            return;
 
-	    tv.tv_sec = 0;
-	    tv.tv_usec = 40000;  // 40 ms repaint interval = 25fps
-	    
-	    FD_ZERO(&descriptors);
-	    FD_SET(pipe_fd,&descriptors);
+        err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
 
-        if (infinite_progress)
-            psplash_draw_infinite_progress(fb, 4, &progress);
+        if (err <= 0)
+        {
+            if((err==0))
+            { // This is the select(9 timeout case, needed only to handle the tap-tap sequence, so repeat the loop.
 
-	    goto startloop;
-	  }
-	  return;
-	}
-      
-      length += read (pipe_fd, end, sizeof(command) - (end - command));
+                tv.tv_sec = 0;
+                tv.tv_usec = 20000;  // 40 ms repaint interval = 25fps
 
-      if (length == 0) 
-	{
-	  /* Reopen to see if there's anything more for us */
-	  close(pipe_fd);
-	  pipe_fd = open(PSPLASH_FIFO,O_RDONLY|O_NONBLOCK);
-	  goto out;
-	}
-      
-      if (command[length-1] == '\0') 
-	{
-	  if (parse_command(fb, command, strlen(command), infinite_progress, progress)) 
-	    return;
-	  length = 0;
-	} 
-      else if (command[length-1] == '\n') 
-	{
-	  command[length-1] = '\0';
-	  if (parse_command(fb, command, strlen(command), infinite_progress, progress)) 
-	    return;
-	  length = 0;
-	} 
+                FD_ZERO(&descriptors);
+                FD_SET(pipe_fd,&descriptors);
 
-    out:
-      end = &command[length];
-    
-      tv.tv_sec = 0;
-      tv.tv_usec = 200000;
-      
-      FD_ZERO(&descriptors);
-      FD_SET(pipe_fd,&descriptors);
+                if (infinite_progress)
+                    psplash_draw_infinite_progress(fb, 4, &progress);
+
+                goto startloop;
+            }
+            return;
+        }
+
+        length += read (pipe_fd, end, sizeof(command) - (end - command));
+
+        if (length == 0)
+        {
+            /* Reopen to see if there's anything more for us */
+            close(pipe_fd);
+            pipe_fd = open(PSPLASH_FIFO,O_RDONLY|O_NONBLOCK);
+            goto out;
+        }
+
+        if (command[length-1] == '\0')
+        {
+            if (parse_command(fb, command, strlen(command), infinite_progress, progress))
+                return;
+            length = 0;
+        }
+        else if (command[length-1] == '\n')
+        {
+            command[length-1] = '\0';
+            if (parse_command(fb, command, strlen(command), infinite_progress, progress))
+                return;
+            length = 0;
+        }
+
+out:
+        end = &command[length];
+
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;
+
+        FD_ZERO(&descriptors);
+        FD_SET(pipe_fd,&descriptors);
     }
 
-  return;
+    return;
 }
 
-int 
-main (int argc, char** argv) 
+int
+main (int argc, char** argv)
 {
     char      *tmpdir;
     int        pipe_fd, i = 0, angle = 0, ret = 0;
