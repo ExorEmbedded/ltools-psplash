@@ -964,11 +964,8 @@ int FastBootTapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
 
     extern void  psplash_draw_msg (PSplashFB *fb, const char *msg);
     extern int reboot(int cmd);
-    int refreshtrigger = 0xff;
     int time; //Time [s/200]
     char msg[MAXPATHLENGTH];
-    int taptap = 0;
-    int prevstatus = laststatus;
 
     // Perform synchronization with the JMlauncher: put it in wait status
     SyncJMLauncher("wait");
@@ -976,42 +973,22 @@ int FastBootTapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     // Perform countdown, touch status reading and msg updating, based on touch status (pressed or not pressed)
     for(time = FASTBOOT_TIME; time > 0; time -= 50)
     {
-        if((time%200) == 0)    //refresh printout at least every second
-            refreshtrigger = 0xff;
+        sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: CONFIG OS\n",(int)(time/200));
+        psplash_draw_msg (fb, msg);
 
-        Touch_handler(touch_fd, &taptap, &laststatus);
-        if(prevstatus != laststatus)
-            time = FASTBOOT_TIME;
-        prevstatus = laststatus;
-
-        if(laststatus != refreshtrigger)
-        { //It is time to refresh the printout
-            refreshtrigger = laststatus;
-            if(laststatus)
-                sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: CONFIG OS\n",(int)(time/200));
-            else
-                sprintf(msg, "** TAP-TAP DETECTED  %d **\n   RESTART: CONFIG OS\n",(int)(time/200));
-            // Draw the string
-            psplash_draw_msg (fb, msg);
-        }
         usleep(200000);
     }
-    // Now, based on the touchscreen laststatus (pressed or not pressed) the proper action will be taken ...
-    if(laststatus)
-    { // In this case we will restart the recovery OS
-        sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nRESTARTING: CONFIG OS ...\n",(int)(time/200));
-        psplash_draw_msg (fb, msg);
-        usleep(3000000);
 
-        // The recovery OS is forced to boot by setting the bootcounter over the threshold limit
-        setbootcounter(100);
-        // Now perform reboot unconditionally (please note the JMloader is still kept into the "wait" status,
-        // so it will not try booting anything in the meanwhile)
-        sync();
-        reboot(LINUX_REBOOT_CMD_RESTART);
-        //We should never get here !!!
-        while(1)
-            usleep(200);
-    }
+    // The recovery OS is forced to boot by setting the bootcounter over the threshold limit
+    setbootcounter(100);
+    // Now perform reboot unconditionally (please note the JMloader is still kept into the "wait" status,
+    // so it will not try booting anything in the meanwhile)
+    sync();
+    reboot(LINUX_REBOOT_CMD_RESTART);
+    fprintf(stderr, "Reboot required \n");
+    //We should never get here !!!
+    while(1)
+        usleep(200);
+
     return 0;
 }

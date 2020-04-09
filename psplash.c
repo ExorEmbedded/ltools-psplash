@@ -31,6 +31,7 @@
 int FONT_SCALE;
 bool disable_progress_bar = FALSE;
 bool fastboot_enable = FALSE;
+bool wu16_machine = FALSE;
 
 void
 psplash_exit (int signum)
@@ -50,7 +51,7 @@ psplash_draw_msg (PSplashFB *fb, const char *msg)
     DBG("displaying '%s' %ix%i\n", msg, w, h);
 
     /* Clear */
-    if(FALSE == fastboot_enable)
+    if( FALSE == fastboot_enable || FALSE == wu16_machine)
         psplash_fb_draw_rect (fb,
                               0,
                               0,
@@ -237,6 +238,14 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch, bool infinite_prog
             fprintf(stdout, "%s: fastboot=n\n", __func__);
             fastboot_enable = FALSE;
         }
+        if( strstr(buffer, "hw_dispid=122") )
+        {
+            fprintf(stdout, "%s: hw_dispid=122\n", __func__);
+            wu16_machine = TRUE;
+        } else {
+            fprintf(stdout, "%s: hw_dispid!=122\n", __func__);
+            wu16_machine = FALSE;
+        }
     }
     fclose(filePointer);
 
@@ -252,7 +261,7 @@ startloop:
             TapTap_Progress(fb, taptap);
             if(taptap > TAPTAP_TH)
             {
-                if( FALSE == fastboot_enable )
+                if( FALSE == fastboot_enable || FALSE == wu16_machine)
                     TapTap_Detected(touch_fd, fb, laststatus);
                 else
                     FastBootTapTap_Detected(touch_fd, fb, laststatus);
