@@ -49,6 +49,7 @@
 #define DEFAULT_TOUCH_EVENT0             "/dev/input/event0"
 #define DEFAULT_TOUCH_EVENT1             "/dev/input/event1"
 #define DEFAULT_TOUCH_EVENT2             "/dev/input/event2"
+#define DEFAULT_TOUCH_EVENT3             "/dev/input/event3"
 
 #define SYSPARAMS_CMD                    "/usr/bin/sys_params "
 
@@ -715,6 +716,10 @@ int Touch_open()
 	    if( touch_fd < 0 ){
 			touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
 	    }
+	    break;
+
+	case US04WU10_VAL:
+	    touch_fd = open(DEFAULT_TOUCH_EVENT3,O_RDONLY | O_NONBLOCK);
 	    break;
 
 	default:
