@@ -51,9 +51,10 @@
 #define NS02WU20_VAL    144
 #define EX8XX_VAL       145
 #define US04WU10_VAL    147
+#define PGDXCA7LE_VAL   149
 
 #define IS_US01(X)      X == ECO_VAL || X == PLCM07_VAL || X == PGDXCA16_VAL || X == PGDXCA18_VAL || \
-                        X == ETOP705_VAL || X == WU16_VAL || X == AUTEC_VAL || X == AB19_VAL
+                        X == ETOP705_VAL || X == WU16_VAL || X == AUTEC_VAL || X == AB19_VAL || X == PGDXCA7LE_VAL
 
 #define IS_US02(X)      X == ETOP6XXL_VAL
 

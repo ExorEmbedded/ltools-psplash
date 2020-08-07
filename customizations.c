@@ -696,6 +696,7 @@ int Touch_open()
 	    break;
 
 	case PGDXCA18_VAL:
+	case PGDXCA7LE_VAL:
 	    /* CA18 could be have 2 types of Touchscreen analog (touch_type=10) or i2c */
             if ( touch_type == 10 )
 	        touch_fd = open(DEFAULT_TOUCH_EVENT2,O_RDONLY | O_NONBLOCK);
