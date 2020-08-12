@@ -68,6 +68,7 @@ int setbootcounter(unsigned char val)
   {
     case PGDXCA16_VAL:
     case PGDXCA18_VAL:
+    case PGDXCA7LE_VAL:
       fprintf(stderr, "Setting boot counter %d in eMMC\n", val);
       return setbootcounter_emmc(val);
     default:
