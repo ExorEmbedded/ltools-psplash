@@ -856,7 +856,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
   SyncJMLauncher("wait");
 
   // Perform countdown, touch status reading and msg updating, based on touch status (pressed or not pressed)
-  for(time = 1000; time > 0; time -= 50)
+  for(time = 1000; time >= 0; time -= 50)
   {
     if((time%200) == 0)    //refresh printout at least every second
       refreshtrigger = 0xff;
@@ -865,7 +865,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     if(prevstatus != laststatus)
        time = 1000;
     prevstatus = laststatus;
-	
+
     if(laststatus != refreshtrigger)
     { //It is time to refresh the printout
       refreshtrigger = laststatus;
@@ -885,6 +885,36 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     usleep(200000);
   }
 
+  int hwcode = gethwcode();
+  int hideCalibration = 0;
+
+  if ( hwcode != ECO_VAL && hwcode != BE15A_VAL && hwcode != BE15B_VAL && hwcode != ETOP6XXL_VAL &&
+        hwcode != PGDXCA16_VAL && hwcode != PGDXCA18_VAL && hwcode != AB19_VAL && hwcode != ETOP6XXL_VAL &&
+        hwcode != AUTEC_VAL && hwcode != X5HH_VAL && hwcode != X5BS_VAL && hwcode != X5HHWIRED_VAL )
+    hideCalibration = 1;
+
+  if ( hwcode == ETOP705_VAL || hwcode == EX7XX_VAL ) {
+
+    hideCalibration = 0;
+
+    FILE* fp = fopen("/proc/bus/input/devices", "r");
+    if (fp != NULL) {
+
+      char * line = NULL;
+      size_t len = 0;
+      ssize_t read;
+
+      while ((read = getline(&line, &len, fp)) != -1) {
+        // Touch calibration is disabled for Rocktouch devices
+        if ( strstr(line, "Vendor=0eef") ) {
+          hideCalibration = 1;
+          break;
+        }
+      }
+      fclose(fp);
+    }
+  }
+
   // Now, based on the touchscreen laststatus (pressed or not pressed) the proper action will be taken ...
   if(laststatus)
   { // In this case we will restart the recovery OS
@@ -901,6 +931,9 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     //We should never get here !!!
     while(1)
       usleep(200);
+  }
+  else if (hideCalibration) {
+    laststatus = 0;
   }
   else
   {
@@ -938,16 +971,6 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       usleep(200000);
     }
 
-    //If the touch calibration was selected and we have a Jsmart, draw message that the touch calibration was done automatically.
-    if(laststatus)
-    {
-      int hw_code = gethwcode();
-      if((hw_code == JSMART_VAL) || (hw_code == JSMARTQ_VAL) || (hw_code == JSMARTTTL_VAL))
-      {
-	sprintf(msg, "** ENTERING SYSTEM SETTINGS  %d **\nTOUCHSCREEN CALIBRATION\nAUTOMATICALLY DONE.\n",(int)(0));
-	psplash_draw_msg (fb, msg);
-      }
-    }
     // highlight icon for the selected option
     if(!laststatus)
       Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);

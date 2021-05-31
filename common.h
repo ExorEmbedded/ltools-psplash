@@ -42,7 +42,8 @@
 #define NS01KIT_VAL     129
 #define NS01KITOH_VAL   130
 #define PGDXCA18_VAL    131
-#define X5_VAL          136
+#define X5HH_VAL        136
+#define X5BS_VAL        137
 #define JS8XX_VAL       139
 #define AB19_VAL        140
 #define TA19_VAL        141
@@ -52,7 +53,7 @@
 #define EX8XX_VAL       145
 #define US04WU10_VAL    147
 #define PGDXCA7LE_VAL   149
-#define X5HHWIRED       150
+#define X5HHWIRED_VAL   150
 
 #define IS_US01(X)      X == ECO_VAL || X == PLCM07_VAL || X == PGDXCA16_VAL || X == PGDXCA18_VAL || \
                         X == ETOP705_VAL || X == WU16_VAL || X == AUTEC_VAL || X == AB19_VAL || X == PGDXCA7LE_VAL
@@ -64,7 +65,7 @@
 
 #define IS_US04(X)      X == JS8XX_VAL || X == EX8XX_VAL
 
-#define IS_NS01(X)      X == X5_VAL || X == X5HHWIRED
+#define IS_NS01(X)      X == X5HH_VAL || X == X5BS_VAL || X == X5HHWIRED_VAL
 
 #define IS_NS02(X)      X == NS02EKXX_VAL || X == NS02WU20_VAL
 
