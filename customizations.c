@@ -933,7 +933,9 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       usleep(200);
   }
   else if (hideCalibration) {
-    laststatus = 0;
+    Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
+    usleep(200000);
+    SyncJMLauncher("disable-kiosk");
   }
   else
   {
