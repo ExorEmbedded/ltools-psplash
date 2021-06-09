@@ -889,11 +889,11 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
   int hideCalibration = 0;
 
   if ( hwcode != ECO_VAL && hwcode != BE15A_VAL && hwcode != BE15B_VAL && hwcode != ETOP6XXL_VAL &&
-        hwcode != PGDXCA16_VAL && hwcode != PGDXCA18_VAL && hwcode != AB19_VAL && hwcode != ETOP6XXL_VAL &&
+        hwcode != PGDXCA16_VAL && hwcode != PGDXCA18_VAL && hwcode != AB19_VAL &&
         hwcode != AUTEC_VAL && hwcode != X5HH_VAL && hwcode != X5BS_VAL && hwcode != X5HHWIRED_VAL )
     hideCalibration = 1;
 
-  if ( hwcode == ETOP705_VAL || hwcode == EX7XX_VAL ) {
+  if ( hwcode == ETOP705_VAL || hwcode == EX7XX_VAL || hwcode == EX7XXQ_VAL ) {
 
     hideCalibration = 0;
 
