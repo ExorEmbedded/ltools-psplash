@@ -61,12 +61,11 @@ psplash_fb_destroy (PSplashFB *fb);
 PSplashFB*
 psplash_fb_new (int angle);
 
-inline
 int psplash_offset (PSplashFB    *fb,
                 int         x,
                 int         y);
 
-inline void
+void
 psplash_fb_plot_pixel (PSplashFB    *fb, 
 		       int          buffered, 
 		       int          x, 
@@ -116,7 +115,7 @@ psplash_fb_draw_text (PSplashFB         *fb,
 
 // Flush given region of local buffers to framebuffer
 // (applies only if buffered=1 has been used)
-inline void
+void
 psplash_fb_flush_rect (PSplashFB    *fb,
 		       int          x,
 		       int          y,

@@ -267,7 +267,7 @@ psplash_fb_new (int angle)
   return NULL;
 }
 
-#define _PSPLASH_OFFSET(fb,x,y) (((y) * (fb)->stride) + ((x) * ((fb)->bpp >> 3)))
+#define PSPLASH_OFFSET(fb,x,y) (((y) * (fb)->stride) + ((x) * ((fb)->bpp >> 3)))
 
 int psplash_offset (PSplashFB    *fb,
                 int         x,
@@ -276,14 +276,14 @@ int psplash_offset (PSplashFB    *fb,
   switch (fb->angle)
     {
     case 270:
-      return _PSPLASH_OFFSET (fb, fb->height - y - 1, x);
+      return PSPLASH_OFFSET (fb, fb->height - y - 1, x);
     case 180:
-      return _PSPLASH_OFFSET (fb, fb->width - x - 1, fb->height - y - 1);
+      return PSPLASH_OFFSET (fb, fb->width - x - 1, fb->height - y - 1);
     case 90:
-      return _PSPLASH_OFFSET (fb, y, fb->width - x - 1);
+      return PSPLASH_OFFSET (fb, y, fb->width - x - 1);
     case 0:
     default:
-      return _PSPLASH_OFFSET (fb, x, y);
+      return PSPLASH_OFFSET (fb, x, y);
     }
 }
 

@@ -47,7 +47,11 @@ int main(int argc, char **argv)
 
   command = argv[1];
   
-  chdir(tmpdir);
+  errno = 0;
+  if (chdir(tmpdir)) {
+    perror("chdir");
+    exit(-1);
+  }
   
   if ((pipe_fd = open (PSPLASH_FIFO,O_WRONLY|O_NONBLOCK)) == -1)
     {
@@ -61,7 +65,12 @@ int main(int argc, char **argv)
       exit (-1);
     }
 
-  write(pipe_fd, command, strlen(command)+1);
+  errno = 0;
+  if (write(pipe_fd, command, strlen(command)+1) < 0) {
+    //no need for verbose failures
+    //perror("write");
+    exit(-1);
+  }
 
   return 0;
 }

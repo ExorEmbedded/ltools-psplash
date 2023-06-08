@@ -19,7 +19,7 @@
 #ifndef _HAVE_COMMON_H
 #define _HAVE_COMMON_H
 
-#define MAXPATHLENGTH           200
+#define MAXPATHLENGTH           512
 #define CMDLINEPATH             "/proc/"
 
 #define ETOP507_VAL     104
@@ -70,6 +70,8 @@
 #define IS_NS02(X)      X == NS02EKXX_VAL || X == NS02WU20_VAL
 
 #include <stdio.h>
+
+int atoi_s(char *s, int *val);
 
 int gethwcode();
 int gettouchtype();

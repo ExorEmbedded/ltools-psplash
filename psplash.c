@@ -23,6 +23,7 @@
 #include "psplash-bar-img.h"
 #include "radeon-font.h"
 #include "customizations.h"
+#include "common.h"
 #include <unistd.h>
 
 #define PROGRESS_FILE "/tmp/splash_progress"
@@ -182,7 +183,7 @@ parse_command (PSplashFB *fb, char *string, int length, bool infinite_progress, 
             return 1;
           }
         fprintf(fp, "%d\n", progress);
-        fclose(fp);
+        (void) fclose(fp);
       }
       return 1;
     }
@@ -191,7 +192,9 @@ parse_command (PSplashFB *fb, char *string, int length, bool infinite_progress, 
 
   if (!infinite_progress && !strcmp(command,"PROGRESS"))
     {
-      psplash_draw_progress (fb, atoi(strtok(NULL,"\0")));
+      int val;
+      if (atoi_s(strtok(NULL,"\0"), &val) == 0)
+        psplash_draw_progress (fb, val);
     }
   else if (!strcmp(command,"MSG"))
     {
@@ -247,7 +250,7 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch, bool infinite_prog
             wu16_machine = FALSE;
         }
     }
-    fclose(filePointer);
+    (void) fclose(filePointer);
 
     while (1)
     {
@@ -277,7 +280,7 @@ startloop:
 
         if (err <= 0)
         {
-            if((err==0))
+            if(err==0)
             { // This is the select(9 timeout case, needed only to handle the tap-tap sequence, so repeat the loop.
 
                 tv.tv_sec = 0;
@@ -342,9 +345,13 @@ main (int argc, char** argv)
     bool       infinite_progress = FALSE;
     bool       blackscreen = FALSE;
 
-    signal(SIGHUP, psplash_exit);
-    signal(SIGINT, psplash_exit);
-    signal(SIGQUIT, psplash_exit);
+    errno = 0;
+    if (signal(SIGHUP, psplash_exit) == SIG_ERR ||
+        signal(SIGINT, psplash_exit) == SIG_ERR ||
+        signal(SIGQUIT, psplash_exit) == SIG_ERR) {
+        perror("signal");
+        exit(-1);
+    }
 
     while (++i < argc)
     {
@@ -369,7 +376,10 @@ main (int argc, char** argv)
         if (!strcmp(argv[i],"-a") || !strcmp(argv[i],"--angle"))
         {
             if (++i >= argc) goto fail;
-            angle = atoi(argv[i]);
+            if (atoi_s(argv[i], &angle)) {
+                fprintf(stderr, "Bad angle value: %s!", argv[i]);
+                exit(-1);
+            }
             continue;
         }
 
@@ -397,7 +407,11 @@ fail:
     if (!tmpdir)
         tmpdir = "/tmp";
 
-    chdir(tmpdir);
+    errno = 0;
+    if (chdir(tmpdir)) {
+        perror("chdir");
+        exit(-1);
+    }
 
     if (mkfifo(PSPLASH_FIFO, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP))
     {

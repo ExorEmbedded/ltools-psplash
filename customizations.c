@@ -18,6 +18,7 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "common.h"
 #include "psplash.h"
@@ -61,9 +62,9 @@ static int getSystemParameter(const char* key, char* value)
 {
 
   char cmd[256];
-  strcpy( cmd, SYSPARAMS_CMD);
-  strncat(cmd, key, sizeof(cmd) - sizeof(SYSPARAMS_CMD) -1);
+  snprintf(cmd, sizeof(cmd), "%s%s", SYSPARAMS_CMD, key);
 
+  // NOLINTNEXTLINE(cert-env33-c) not insecure as long as passed fixed input
   FILE* pipe = popen(cmd, "r");
   if (!pipe)
     return -1;
@@ -120,8 +121,7 @@ static int SyncJMLauncher(char* msg)
     tmpdir = "/tmp";
 
   //Filename is "taptap"
-  strncpy(fullpath, tmpdir, MAXPATHLENGTH);
-  strncat(fullpath,"/taptap", MAXPATHLENGTH);
+  snprintf(fullpath, sizeof(fullpath), "%s/taptap", tmpdir);
 
   // Opens the file and write the sync message
   FILE* fp;
@@ -132,8 +132,8 @@ static int SyncJMLauncher(char* msg)
   }
 
   fprintf(fp,"%s",msg);
-  fflush(fp);
-  fclose(fp);
+  (void) fflush(fp);
+  (void) fclose(fp);
 
   return 0;
 }
@@ -144,18 +144,19 @@ static int systemcmd(const char* cmd)
 {
   int ret;
 
+  // NOLINTNEXTLINE(cert-env33-c) not insecure as long as passed fixed input
   ret = system(cmd);
   if (ret == -1)
     return ret;	// Failed to execute the system function
 
-    if(WIFEXITED(ret))
-    {
-      if(0 != WEXITSTATUS(ret))
-	return -1;	// The executed command exited normally but returned an error
-	else
-	  return 0;	// The executed command exited normally and returned 0 (=SUCCESS)
-    }
-    return -1;		// The executed command did not terminate properly
+  if(WIFEXITED(ret))
+  {
+    if(0 != WEXITSTATUS(ret))
+      return -1;	// The executed command exited normally but returned an error
+    else
+      return 0;	// The executed command exited normally and returned 0 (=SUCCESS)
+  }
+  return -1;		// The executed command did not terminate properly
 }
 
 // Helper function to read the brightness value from SEEPROM.
@@ -175,12 +176,15 @@ static int get_brightness_from_seeprom()
   //2: Now read the brightness value from the corresponding offset
   char buf = 255;
 
-  fseek (fp, BLDIMM_POS, SEEK_SET);
+  errno = 0;
+  if (fseek (fp, BLDIMM_POS, SEEK_SET))
+    fprintf(stderr, "psplash: Error reading the eeprom: err=%s\n", strerror(errno));
+  errno = 0;
   if(1 !=fread(&buf, 1, 1, fp))
     fprintf(stderr, "psplash: Error reading the eeprom: err=%s\n", strerror(errno));
 
   //3: Close and return value
-  fclose(fp);
+  (void) fclose(fp);
   return (((int)buf) & 0xff) ;
 }
 
@@ -214,11 +218,8 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   char mkdir_cmd[] = "mkdir "PATHTOSPLASH;
   systemcmd(mkdir_cmd);
 
-  char mount_cmd[MAXPATHLENGTH] = "mount -o ro ";
-  strncat(mount_cmd, splashpartition, MAXPATHLENGTH/2);
-  mount_cmd[MAXPATHLENGTH/2] = 0;
-  strcat(mount_cmd, " ");
-  strcat(mount_cmd, PATHTOSPLASH);
+  char mount_cmd[MAXPATHLENGTH];
+  snprintf(mount_cmd, sizeof(mount_cmd), "mount -o ro %s %s", splashpartition, PATHTOSPLASH);
   systemcmd(mount_cmd);
 
   //Try to open the splash file
@@ -285,7 +286,9 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
 
   for(y=0; y<splash_height; y++)
   {
-    fread(stride, 2 * splash_width, 1, fp);
+    if (fread(stride, 2 * splash_width, 1, fp) != 1)
+        continue;
+        
     for(x=0; x<splash_width; x++)
     {
       rgb565color = stride[x];
@@ -297,7 +300,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   }
 
   free(stride);
-  fclose(fp);
+  (void) fclose(fp);
   // UnMount the splash partition
   // systemcmd(umount_cmd);
 
@@ -305,7 +308,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
 
 error:
   if(fp)
-    fclose(fp);
+    (void) fclose(fp);
   // UnMount the splash partition
   // systemcmd(umount_cmd);
 
@@ -599,7 +602,7 @@ void UpdateBrightness()
   int target_brightness;
 
   char strval[5]={0,0,0,0,0};
-  char brightnessdevice[MAXPATHLENGTH] = BRIGHTNESSDEVICE;
+  char brightnessdevice[MAXPATHLENGTH];
 
   // Get the full path for accessing the backlight driver: we should have an additonal subdir to be appended to the hardcoded path
   DIR           *d;
@@ -611,8 +614,7 @@ void UpdateBrightness()
     {
       if(dir->d_name[0] != '.')
       {
-	strcat(brightnessdevice, dir->d_name);
-	strcat(brightnessdevice,"/");
+	snprintf(brightnessdevice, sizeof(brightnessdevice), "%s%s/", BRIGHTNESSDEVICE, dir->d_name);
 	break;
       }
     }
@@ -621,7 +623,8 @@ void UpdateBrightness()
 
   // Read the max_brightness value for the backlight driver and perform sanity check
   sysfs_read(brightnessdevice,"max_brightness",strval,3);
-  max_brightness=atoi(strval);
+  if (atoi_s(strval, &max_brightness))
+    return;
 
   if((max_brightness < 1) || (max_brightness > 255))
     max_brightness = 100;
@@ -819,15 +822,21 @@ void TapTap_Progress(PSplashFB *fb, int taptap)
     return;
 
   // Build a string representing the actual TAP-TAP counter value
-  char msg[MAXPATHLENGTH] = "";
+  char msg[MAXPATHLENGTH];
+  memset(msg, 0, sizeof(msg));
+
   int i;
 
   for(i=0; i<TAPTAP_TH; i++)
   {
+    // NOLINTBEGIN CWE-119 strcat used safely here with bounds check
+    if (i>=(MAXPATHLENGTH-1))
+      return;
     if(i<taptap)
       strcat(msg,"#");
     else
       strcat(msg,".");
+    // NOLINTEND
   }
 
   // Draw the string
@@ -902,16 +911,15 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
 
       char * line = NULL;
       size_t len = 0;
-      ssize_t read;
 
-      while ((read = getline(&line, &len, fp)) != -1) {
+      while (getline(&line, &len, fp) != -1) {
         // Touch calibration is disabled for Rocktouch devices
         if ( strstr(line, "Vendor=0eef") ) {
           hideCalibration = 1;
           break;
         }
       }
-      fclose(fp);
+      (void) fclose(fp);
     }
   }
 

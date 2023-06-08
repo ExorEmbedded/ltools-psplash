@@ -1,8 +1,34 @@
 #include "common.h"
 #include <string.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <errno.h>
 
 static int setbootcounter_emmc(unsigned char val);
 static int setbootcounter_nvram(unsigned char val);
+
+/* Safe version of atoi() that detects conversion errors - returns 0 on success, non-zero on failure */
+int atoi_s(char *s, int *val)
+{
+        long l;
+        char *endptr;
+
+        errno = 0;
+        l = strtol(s, &endptr, 10);
+        if (!endptr || endptr == s || *endptr != '\0' ||
+                        (errno == ERANGE && (l == LONG_MAX || l == LONG_MIN))) {
+                (void) fprintf(stderr, "atoi_s() failed conversion on: %s\n", s);
+                return ~0;
+        }
+        if (l > INT_MAX || l < INT_MIN) {
+                (void) fprintf(stderr, "atoi_s() not an integer: %s\n", s);
+                return ~0;
+        }
+
+        *val = (int) l;
+
+        return 0;
+}
 
 int gethwcode()
 {
@@ -23,6 +49,8 @@ int gethwcode()
   pch = strstr(cmdline, "hw_code=") + strlen("hw_code=");
   if (pch == NULL)
     return -1;
+
+  // NOLINTNEXTLINE(cert-err34-c) safe because argument comes from sysfs
   if (sscanf (pch,"%d %*s", &hc) < 1)
     return -1;
 
@@ -51,6 +79,8 @@ int gettouchtype()
   pch = strstr(cmdline, "touch_type=") + strlen("touch_type=");
   if (pch == NULL)
     return -1;
+
+  // NOLINTNEXTLINE(cert-err34-c) safe because argument comes from sysfs
   if (sscanf (pch,"%d %*s", &hc) < 1)
     return -1;
 
@@ -96,27 +126,43 @@ static int setbootcounter_emmc(unsigned char val)
   if(fp == NULL || sysfs_ro == NULL)
   {
     fprintf(stderr,"setbootcounter cannot open file -> %s \n",BOOT1DEVICE);
-    return -1;
+    goto err;
   }
 
   if (fseek(fp, 0x80000, SEEK_SET))
   {
     fprintf(stderr,"setbootcounter cannot open file -> %s \n",BOOT1DEVICE);
-    return -1;
+    goto err;
   }
 
-  fputs("0", sysfs_ro);
-  fflush(sysfs_ro);
+  if (fputs("0", sysfs_ro) == EOF) {
+    fprintf(stderr,"setbootcounter failed making writeable\n");
+    goto err;
+  }
+  (void) fflush(sysfs_ro);
 
-  fwrite(buff,1,2,fp);
-  fflush(fp);
-  fclose(fp);
+  if (fwrite(buff,1,2,fp) < 2) {
+    fprintf(stderr,"setbootcounter failed write\n");
+    (void) fclose(fp); fp = NULL;
+    goto err;
+  }
+  (void) fflush(fp);
+  (void) fclose(fp); fp = NULL;
 
-  fputs("1", sysfs_ro);
-  fflush(sysfs_ro);
-  fclose(sysfs_ro);
+  if (fputs("1", sysfs_ro) == EOF) {
+    fprintf(stderr,"setbootcounter failed making readonly\n");
+    goto err;
+  }
+  (void) fflush(sysfs_ro);
+  (void) fclose(sysfs_ro); sysfs_ro = NULL;
 
   return 0;
+err:
+  if (fp)
+      (void) fclose(fp);
+  if (sysfs_ro)
+      (void) fclose(sysfs_ro);
+  return -1;
 }
 
 /***********************************************************************************************************
@@ -139,9 +185,13 @@ static int setbootcounter_nvram(unsigned char val)
     return -1;
   }
   
-  fwrite(buff,1,2,fp);
-  fflush(fp); //Just in case ... but not really needed
-  fclose(fp);
+  if (fwrite(buff,1,2,fp) < 2) {
+    fprintf(stderr,"setbootcounter failed write\n");
+    (void) fclose(fp);
+    return -1;
+  }
+  (void) fflush(fp); //Just in case ... but not really needed
+  (void) fclose(fp);
   
   return 0;
 }
@@ -152,8 +202,7 @@ int sysfs_read(char* pathto, char* fname, char* value, int n)
   char str[MAXPATHLENGTH];
   FILE* fp;
   
-  strncpy(str,pathto,MAXPATHLENGTH);
-  strncat(str,fname,MAXPATHLENGTH);
+  snprintf(str, sizeof(str), "%s%s", pathto, fname);
   
   if((fp = fopen(str, "rb"))==NULL)
   {
@@ -162,8 +211,12 @@ int sysfs_read(char* pathto, char* fname, char* value, int n)
   }
   
   rewind(fp);
-  fread (value, 1, n, fp);
-  fclose(fp);
+  if (fread (value, 1, n, fp) != n) {
+    (void) fclose(fp);
+    return -1;
+  }
+
+  (void) fclose(fp);
   return 0;
 }
 
@@ -173,8 +226,8 @@ int sysfs_write(char* pathto, char* fname, char* value)
   char str[MAXPATHLENGTH];
   FILE* fp;
   
-  strncpy(str,pathto,MAXPATHLENGTH);
-  strncat(str,fname,MAXPATHLENGTH);
+  size_t value_sz = strlen(value);
+  snprintf(str, sizeof(str), "%s%s", pathto, fname);
   
   if((fp = fopen(str, "ab"))==NULL)
   {
@@ -183,7 +236,11 @@ int sysfs_write(char* pathto, char* fname, char* value)
   }
   
   rewind(fp);
-  fwrite(value,1,strlen(value),fp);
-  fclose(fp);
+  if (fwrite(value,1,value_sz,fp) < value_sz) {
+    fprintf(stderr,"sysfs failed write\n");
+    (void) fclose(fp);
+    return -1;
+  }
+  (void) fclose(fp);
   return 0;
 }
