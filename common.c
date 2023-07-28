@@ -216,6 +216,10 @@ int sysfs_read(char* pathto, char* fname, char* value, int n)
     return -1;
   }
 
+  // trim newline
+  if (value[n-1] == '\n')
+    value[n-1] = '\0';
+
   (void) fclose(fp);
   return 0;
 }
