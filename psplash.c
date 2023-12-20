@@ -33,13 +33,13 @@ int FONT_SCALE;
 bool disable_progress_bar = FALSE;
 bool fastboot_enable = FALSE;
 bool wu16_machine = FALSE;
+volatile sig_atomic_t sig_flag = 0;
 
 void
 psplash_exit (int signum)
 {
-    DBG("mark");
-
-    psplash_console_reset ();
+    DBG("Exit Step #1");
+    sig_flag = 1;
 }
 
 void
@@ -470,6 +470,12 @@ fail:
     UpdateBrightness();
 
     psplash_main (fb, pipe_fd, disable_touch, infinite_progress);
+
+    if (sig_flag)
+    {
+        DBG("Exit Step #2");
+        psplash_console_reset ();
+    }
 
     psplash_fb_destroy (fb);
 
