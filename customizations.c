@@ -913,8 +913,8 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       size_t len = 0;
 
       while (getline(&line, &len, fp) != -1) {
-        // Touch calibration is disabled for Rocktouch devices
-        if ( strstr(line, "Vendor=0eef") ) {
+        // Touch calibration is disabled for Rocktouch and ILITEK devices
+        if ( strstr(line, "Vendor=0eef") || strstr(line, "Vendor=222a") ) {
           hideCalibration = 1;
           break;
         }
