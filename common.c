@@ -211,7 +211,7 @@ int sysfs_read(char* pathto, char* fname, char* value, int n)
   }
   
   rewind(fp);
-  if (fread (value, 1, n, fp) != n) {
+  if (fread (value, 1, n, fp) < 0) {
     (void) fclose(fp);
     return -1;
   }
